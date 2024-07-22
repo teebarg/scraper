@@ -1,4 +1,4 @@
-# RFT Python Service
+# Scrapper Python Service
 
 [![Python Version](https://img.shields.io/badge/python-3.11-blue.svg)](https://python.org)
 
@@ -25,8 +25,8 @@ This is a FastAPI project built with Python 3.11. FastAPI is a modern, fast, web
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/teebarg/react-router
-cd react-router
+git clone https://github.com/teebarg/scraper
+cd scraper
 ```
 
 2. Create a virtual environment (optional but recommended):

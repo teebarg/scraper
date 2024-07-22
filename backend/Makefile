@@ -1,5 +1,5 @@
 # Variables
-PROJECT_SLUG := react-router
+PROJECT_SLUG := scrapper
 APP_NAME := $(PROJECT_SLUG)-backend
 PORT := 4082
 
@@ -10,7 +10,7 @@ build:
 	docker build -t $(APP_NAME) .
 
 run:
-	docker run -p $(PORT):8000 --name $(APP_NAME) -v /Users/user/Documents/gigs/niyi/lab/react-router/backend:/app:ro $(APP_NAME)
+	docker run -p $(PORT):8000 --name $(APP_NAME) -v /Users/user/Documents/gigs/niyi/lab/scraper/backend:/app:ro $(APP_NAME)
 
 stop:
 	docker stop $(APP_NAME)

@@ -1,13 +1,9 @@
 import secrets
-from typing import Any, List, Literal, Optional
+from typing import List, Literal
 
 from pydantic import (
     AnyHttpUrl,
-    EmailStr,
-    PostgresDsn,
-    ValidationInfo,
     computed_field,
-    field_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 

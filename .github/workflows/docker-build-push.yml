@@ -34,7 +34,7 @@ jobs:
               id: meta
               uses: docker/metadata-action@v5
               with:
-                images: ${{ secrets.DOCKER_USERNAME }}/react-router-backend
+                images: ${{ secrets.DOCKER_USERNAME }}/scrapper
                 tags: |
                   type=raw,value=latest
                   type=sha

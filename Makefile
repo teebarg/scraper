@@ -48,5 +48,5 @@ stage: ## Prepare postges database
 pre-commit:
 	npx concurrently --kill-others-on-fail --prefix "[{name}]" --names "backend:lint,backend:test" \
 	--prefix-colors "bgRed.bold.white,bgGreen.bold.white,bgBlue.bold.white,bgMagenta.bold.white" \
-	"docker exec react-router-backend-1 make format" \
-	"docker exec react-router-backend-1 make test"
+	"docker exec scrapper-backend-1 make format" \
+	"docker exec scrapper-backend-1 make test"
