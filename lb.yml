@@ -1,0 +1,20 @@
+log:
+    level: DEBUG
+
+http:
+    routers:
+        backend:
+            rule: PathPrefix(`/api`)
+            service: backend
+        backend-doc:
+            rule: PathPrefix(`/docs`)
+            service: backend
+        backend-redoc:
+            rule: PathPrefix(`/redoc`)
+            service: backend
+
+    services:
+        backend:
+            loadBalancer:
+                servers:
+                    - url: "http://backend:8000"

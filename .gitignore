@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+*.env
+
+# Google Sheets and Firebase credentials
+*credentials.json
+
+# Chrome Extension
+chrome_extension/*.pem
+
+# IDE files
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore

@@ -1,0 +1,28 @@
+services:
+  traefik:
+    image: traefik:v2.9
+    command:
+      - traefik
+      - --entrypoints.dev.address=:4080
+      - --providers.file.filename=/config.yml
+      - --api.insecure=true
+    ports:
+      - 4080:4080
+      - 4081:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./lb.yml:/config.yml:ro
+
+  backend:
+    image: 'scraper:latest'
+    ports:
+      - 4082:8000
+    env_file:
+      - ./backend/.env
+    build:
+      context: ./backend
+      args:
+        INSTALL_DEV: ${INSTALL_DEV-false}
+    platform: linux/amd64 # Patch for M1 Mac
+    volumes:
+      - ./backend/:/app
