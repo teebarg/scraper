@@ -34,8 +34,11 @@ document.getElementById("sendButton").addEventListener("click", () => {
 });
 
 function sendHtmlToBackend() {
+    // const url = "http://localhost:4080/api/process_html";
+    const url = "https://scrapper-zm00.onrender.com/api/process_html";
     const html = document.documentElement.outerHTML;
-    return fetch("http://localhost:4080/api/process_html", {
+
+    return fetch(url, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
