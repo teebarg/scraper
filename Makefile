@@ -17,7 +17,7 @@ BLUE=$(shell tput -Txterm setaf 6)
 RESET=$(shell tput -Txterm sgr0)
 
 ## Vercel
-startDev: ## Start Vercel development server
+dev: ## Start Vercel development server
 	@echo "$(YELLOW)Starting Vercel development server...$(RESET)"
 	vercel dev
 

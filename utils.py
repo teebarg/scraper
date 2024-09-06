@@ -91,15 +91,12 @@ def upload_to_firebase(image_name: str, image_url: str):
 
         # Download the image
         response = requests.get(image_url)
-        with open(image_name, "wb") as f:
-            f.write(response.content)
+        image_content = response.content
 
         # Upload to Firebase Storage
         bucket = storage.bucket()
         blob = bucket.blob(f"products/{image_name}")
-        blob.upload_from_filename(image_name)
+        blob.upload_from_string(image_content, content_type="image/png")
 
-        # Clean up the local file
-        os.remove(image_name)
     except Exception as e:
         raise Exception(e) from e
