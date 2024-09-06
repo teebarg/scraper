@@ -1,0 +1,9 @@
+# black==24.4.2
+# flake8==7.0.0
+# isort==5.13.2
+# mypy==1.11.0
+# ruff==0.5.0
+beautifulsoup4==4.12.3
+gspread==6.1.2
+firebase_admin==6.5.0
+# python-dotenv==1.0.0

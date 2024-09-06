@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import unicodedata
@@ -8,8 +9,20 @@ import requests
 from bs4 import BeautifulSoup
 from firebase_admin import credentials, storage
 
-from core.config import settings
-from core.logging import logger
+FIREBASE_CRED = {
+    "type": os.getenv("FIREBASE_TYPE"),
+    "project_id": os.getenv("FIREBASE_PROJECT_ID"),
+    "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
+    "private_key": os.getenv("FIREBASE_PRIVATE_KEY"),
+    "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
+    "client_id": os.getenv("FIREBASE_CLIENT_ID"),
+    "auth_uri": os.getenv("FIREBASE_AUTH_URI"),
+    "token_uri": os.getenv("FIREBASE_TOKEN_URI"),
+    "auth_provider_x509_cert_url": os.getenv("FIREBASE_AUTH_PROVIDER_CERT_URL"),
+    "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT_URL"),
+    "universe_domain": os.getenv("FIREBASE_UNIVERSE_DOMAIN"),
+    "serviceAccountId": os.getenv("FIREBASE_SERVICE_ACCOUNT_ID"),
+}
 
 
 def create_slug(text: str) -> str:
@@ -37,7 +50,6 @@ def scrape_product(html_content) -> dict[str, str]:
         image_name = f"{slug}.png"
 
     except Exception as e:
-        logger.error(e)
         raise Exception(e) from e
 
     return {
@@ -51,11 +63,11 @@ def scrape_product(html_content) -> dict[str, str]:
 
 
 def add_or_update_sheet(product_data: dict) -> None:
-    gc = gspread.service_account_from_dict(settings.FIREBASE_CRED)
+    SHEET_ID = os.getenv("SHEET_ID")
+    gc = gspread.service_account_from_dict(FIREBASE_CRED)
 
     # Open the Google Sheet (replace with your sheet ID)
-    sht = gc.open_by_key(settings.SHEET_ID).sheet1
-
+    sht = gc.open_by_key(SHEET_ID).sheet1
     sht.append_row(
         [
             product_data["name"],
@@ -70,12 +82,12 @@ def add_or_update_sheet(product_data: dict) -> None:
 
 
 def upload_to_firebase(image_name: str, image_url: str):
+    STORAGE_BUCKET = os.getenv("STORAGE_BUCKET")
+
     try:
-        cred = credentials.Certificate(settings.FIREBASE_CRED)
+        cred = credentials.Certificate(FIREBASE_CRED)
         if not firebase_admin._apps:
-            firebase_admin.initialize_app(
-                cred, {"storageBucket": settings.STORAGE_BUCKET}
-            )
+            firebase_admin.initialize_app(cred, {"storageBucket": STORAGE_BUCKET})
 
         # Download the image
         response = requests.get(image_url)
@@ -90,5 +102,4 @@ def upload_to_firebase(image_name: str, image_url: str):
         # Clean up the local file
         os.remove(image_name)
     except Exception as e:
-        logger.error(e)
         raise Exception(e) from e

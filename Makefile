@@ -1,12 +1,13 @@
-.PHONY: help startTest updateTest stopTest
+.PHONY: help
 .EXPORT_ALL_VARIABLES:
 
-PROJECT_SLUG := "scrapper"
-APP_NAME := $(PROJECT_SLUG)-backend
-DOCKER_HUB := beafdocker
-
-help: ## Help for project
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+help:
+	@echo "Usage: make <target>"
+	@echo "Targets:"
+	@echo "  startDev - Start Vercel development server"
+	@echo "  deploy - Deploy to Vercel"
+	@echo "  lint - Run linters for backend"
+	@echo "  pre-commit - Run pre-commit hooks"
 
 # ANSI color codes
 GREEN=$(shell tput -Txterm setaf 2)
@@ -15,38 +16,27 @@ RED=$(shell tput -Txterm setaf 1)
 BLUE=$(shell tput -Txterm setaf 6)
 RESET=$(shell tput -Txterm sgr0)
 
-## Docker
-startTest: ## Start docker development environment
-	@echo "$(YELLOW)Starting docker environment...$(RESET)"
-	docker compose -p $(PROJECT_SLUG) up --build
+## Vercel
+startDev: ## Start Vercel development server
+	@echo "$(YELLOW)Starting Vercel development server...$(RESET)"
+	vercel dev
 
-# This target can be used in a separate terminal to update any containers after a change in config without restarting (environment variables, requirements.txt, etc)
-updateTest:  ## Update test environment containers (eg: after config changes)
-	docker compose -p $(PROJECT_SLUG) up --build -d
+deploy: ## Deploy to Vercel
+	@echo "$(YELLOW)Deploying to Vercel...$(RESET)"
+	vercel --prod
 
-stopTest: ## Stop test development environment
-	@COMPOSE_PROJECT_NAME=$(PROJECT_SLUG) docker compose down
+## Formatting
+format: ## Format code for both Chrome extension and Python files
+	@echo "$(BLUE)Formatting Chrome extension code...$(RESET)"
+	npx prettier --write "chrome_extension/**/*.{js,json,html,css}"
+	@echo "$(GREEN)Chrome extension code formatted.$(RESET)"
+	@echo "$(BLUE)Formatting Python files...$(RESET)"
+	black .
+	@echo "$(GREEN)Python files formatted.$(RESET)"
 
-
-# Utilities
-lint: ## Format backend code
-	@echo "$(YELLOW)Running linters for backend...$(RESET)"
-	@cd backend && make format
-
-
-# Backend Deployment
-build: ## Build docker image for the project
-	@echo "$(YELLOW)Building project image...$(RESET)"
-	docker build -f backend/Dockerfile -t $(APP_NAME) ./backend
-
-stage: ## Prepare postges database
-	@echo "$(YELLOW)Staging for deployment...$(RESET)"
-	docker tag $(APP_NAME):latest $(DOCKER_HUB)/$(APP_NAME):latest
-	docker push $(DOCKER_HUB)/$(APP_NAME):latest
 
 # Helpers
 pre-commit:
-	npx concurrently --kill-others-on-fail --prefix "[{name}]" --names "backend:lint,backend:test" \
+	npx concurrently --kill-others-on-fail --prefix "[{name}]" --names "api:lint" \
 	--prefix-colors "bgRed.bold.white,bgGreen.bold.white,bgBlue.bold.white,bgMagenta.bold.white" \
-	"docker exec scrapper-backend-1 make format" \
-	"docker exec scrapper-backend-1 make test"
+	"make format"

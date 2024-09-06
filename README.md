@@ -1,11 +1,11 @@
 # Product Scraper and Processor
 
-This project consists of a Chrome extension and a FastAPI backend for scraping product information from web pages and processing it. The scraped data is stored in a Google Sheet and product images are uploaded to Firebase Storage.
+This project consists of a Chrome extension and a Python Serverless for scraping product information from web pages and processing it. The scraped data is stored in a Google Sheet and product images are uploaded to Firebase Storage.
 
 ## Components
 
 1. Chrome Extension: Captures the HTML of the current page and sends it to the backend.
-2. FastAPI Backend: Processes the HTML, extracts product information, updates a Google Sheet, and uploads images to Firebase.
+2. Vercel Python Serverless: Processes the HTML, extracts product information, updates a Google Sheet, and uploads images to Firebase.
 
 ## Setup
 
@@ -27,8 +27,8 @@ This project consists of a Chrome extension and a FastAPI backend for scraping p
 1. Clone this repository:
 
    ```
-   git clone https://github.com/yourusername/product-scraper.git
-   cd product-scraper
+   git clone https://github.com/teebarg/scraper.git
+   cd scraper
    ```
 
 2. Create a `.env` file in the project root with the following contents:
@@ -42,11 +42,16 @@ This project consists of a Chrome extension and a FastAPI backend for scraping p
 
 3. Place your Google Sheets and Firebase credential files in the project root directory.
 
-4. Build and run the Docker container:
+4. Install Vercel CLI:
 
    ```
-   docker build -t product-scraper .
-   docker run -p 8000:8000 --env-file .env product-scraper
+   npm i -g vercel
+   ```
+
+5. Deploy to Vercel:
+
+   ```
+   vercel
    ```
 
 ## Usage
@@ -67,16 +72,16 @@ To run the backend locally for development:
    source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
    ```
 
-2. Install dependencies:
+2. Install Vercel CLI if you haven't already:
 
    ```
-   pip install -r requirements.txt
+   npm i -g vercel
    ```
 
-3. Run the FastAPI server:
+3. Run the Vercel development server:
 
    ```
-   uvicorn main:app --reload
+   vercel dev
    ```
 
 ## Contributing

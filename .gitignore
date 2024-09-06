@@ -2,8 +2,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
-venv/
-*.env
+.vercel
+*.log
+*.pyc
+__pycache__
 
 # Google Sheets and Firebase credentials
 *credentials.json
@@ -21,3 +23,13 @@ Thumbs.db
 
 # Docker
 .dockerignore
+
+# Environments
+venv/
+*.env
+.env 
+.venv 
+env/ 
+ENV/ 
+env.bak/ 
+venv.bak/ 

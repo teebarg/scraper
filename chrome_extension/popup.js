@@ -34,16 +34,16 @@ document.getElementById("sendButton").addEventListener("click", () => {
 });
 
 function sendHtmlToBackend() {
-    // const url = "http://localhost:4080/api/process_html";
-    const url = "https://scrapper-zm00.onrender.com/api/process_html";
+    // const url = "https://scrapper-zm00.onrender.com/api/process_html";
+    const url = "http://localhost:3000/api";
     const html = document.documentElement.outerHTML;
 
     return fetch(url, {
         method: "POST",
         headers: {
-            "Content-Type": "application/json",
+            "Content-Type": "text/plain",
         },
-        body: JSON.stringify({ html: html }),
+        body: html,
     })
         .then((response) => response.json())
         .then((data) => data)
