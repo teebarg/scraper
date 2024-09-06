@@ -1,6 +1,4 @@
-
-
-console.log("running background js")
+console.log("running background js");
 chrome.tabs.onUpdated.addListener(function () {
     console.log("TAB UPDATED");
     chrome.scripting.executeScript({

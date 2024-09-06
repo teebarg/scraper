@@ -4,9 +4,37 @@ const productInfo = document.getElementById("productInfo");
 
 document.getElementById("sendButton").addEventListener("click", () => {
     const sendButton = document.getElementById("sendButton");
+    const feedback = document.getElementById("feedback");
+
+    // Create loader element
+    const loader = document.createElement("div");
+    loader.className = "loader";
+    loader.style.display = "none";
+    feedback.parentNode.insertBefore(loader, feedback);
+
     sendButton.disabled = true;
     sendButton.style.opacity = 0.5;
     sendButton.style.cursor = "not-allowed";
+    // Create and style the loader
+    loader.style.display = "block";
+    loader.style.width = "50px";
+    loader.style.height = "50px";
+    loader.style.border = "5px solid #f3f3f3";
+    loader.style.borderTop = "5px solid #3498db";
+    loader.style.borderRadius = "50%";
+    loader.style.animation = "spin 1s linear infinite";
+    loader.style.margin = "20px auto";
+
+    // Add keyframe animation
+    const style = document.createElement("style");
+    style.textContent = `
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    `;
+    document.head.appendChild(style);
+
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         chrome.scripting.executeScript(
             {
@@ -18,15 +46,18 @@ document.getElementById("sendButton").addEventListener("click", () => {
                     result.classList.add("hidden");
                     if (frameResult.result) {
                         const response = frameResult.result;
-                        document.getElementById("feedback").textContent = `Response: ${response.message}`;
+                        feedback.textContent = `Response: ${response.message}`;
                         displayProductInfo(response.data);
                     } else {
-                        document.getElementById("feedback").textContent = "Error sending HTML to backend.";
+                        feedback.textContent = "Error sending HTML to backend.";
                     }
                     // Re-enable the button after response
                     sendButton.disabled = false;
                     sendButton.style.opacity = 1;
                     sendButton.style.cursor = "pointer";
+
+                    // Hide loader
+                    loader.style.display = "none";
                 }
             }
         );
@@ -34,16 +65,16 @@ document.getElementById("sendButton").addEventListener("click", () => {
 });
 
 function sendHtmlToBackend() {
-    // const url = "http://localhost:4080/api/process_html";
-    const url = "https://scrapper-zm00.onrender.com/api/process_html";
+    const url = "https://scraper-api.niyi.com.ng/api";
+    // const url = "http://localhost:3000/api";
     const html = document.documentElement.outerHTML;
 
     return fetch(url, {
         method: "POST",
         headers: {
-            "Content-Type": "application/json",
+            "Content-Type": "text/plain",
         },
-        body: JSON.stringify({ html: html }),
+        body: html,
     })
         .then((response) => response.json())
         .then((data) => data)
