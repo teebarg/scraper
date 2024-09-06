@@ -1,7 +1,7 @@
-import json
 import os
 import re
 import unicodedata
+import uuid
 
 import firebase_admin
 import gspread
@@ -53,6 +53,7 @@ def scrape_product(html_content) -> dict[str, str]:
         raise Exception(e) from e
 
     return {
+        "id": f"prod_{uuid.uuid4().hex[:24].upper()}",
         "name": product_name,
         "slug": slug,
         "description": product_desc,
@@ -68,17 +69,39 @@ def add_or_update_sheet(product_data: dict) -> None:
 
     # Open the Google Sheet (replace with your sheet ID)
     sht = gc.open_by_key(SHEET_ID).sheet1
-    sht.append_row(
-        [
-            product_data["name"],
-            product_data["slug"],
-            product_data["description"],
-            float(product_data["price"]) * 1500,
-            0,
-            product_data["image_name"],
-            4.7,
-        ]
-    )
+    # sht.append_row(
+    #     [
+    #         product_data["name"],
+    #         product_data["slug"],
+    #         product_data["description"],
+    #         float(product_data["price"]) * 1500,
+    #         0,
+    #         product_data["image_name"],
+    #         4.7,
+    #     ]
+    # )
+
+    # Find the next available row (get the number of rows)
+    next_row = len(sht.get_all_values()) + 1
+    print(next_row)
+
+    # Update specific columns (e.g., Name in column 1, Country in column 3)
+    sht.update(f'A{next_row}', [[product_data["id"]]])
+    sht.update(f'B{next_row}', [[product_data["slug"]]])
+    sht.update(f'C{next_row}', [[product_data["name"]]])
+    # sht.update(f'D{next_row}', [[product_data["price"]]])
+    sht.update(f'E{next_row}', [[product_data["description"]]])
+    sht.update(f'F{next_row}', [["published"]])
+    sht.update(f'T{next_row}', [["TRUE"]])
+    sht.update(f'V{next_row}', [["Default Shipping Profile"]])
+    sht.update(f'W{next_row}', [["default"]])
+    variant_id = f"variant_{uuid.uuid4().hex[:24].upper()}"
+    sht.update(f'X{next_row}', [[variant_id]])
+    sht.update(f'AB{next_row}', [["20"]])
+    sht.update(f'AC{next_row}', [["FALSE"]])
+    sht.update(f'AD{next_row}', [["TRUE"]])
+    sht.update(f'AE{next_row}', [["0"]])
+    sht.update(f'O{next_row}', [["0"]])
 
 
 def upload_to_firebase(image_name: str, image_url: str):

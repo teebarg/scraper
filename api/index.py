@@ -34,6 +34,7 @@ class handler(BaseHTTPRequestHandler):
             )
             self.wfile.write(response.encode("utf-8"))
         except Exception as e:
+            print(e, "error........")
             self.send_response(400)
             self.send_header("Content-type", "application/json")
             self.end_headers()
