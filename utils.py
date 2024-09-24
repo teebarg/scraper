@@ -50,6 +50,7 @@ def scrape_product(html_content) -> dict[str, str]:
         image_name = f"{slug}.png"
 
     except Exception as e:
+        print(f"Error creating product: {e}")
         raise Exception(e) from e
 
     return {
@@ -87,33 +88,16 @@ def add_or_update_sheet(product_data: dict) -> None:
 
     # Update specific columns (e.g., Name in column 1, Country in column 3)
     # sht.update(f'A{next_row}', [[product_data["id"]]])
-    sht.update(f'B{next_row}', [[product_data["slug"]]])
-    sht.update(f'C{next_row}', [[product_data["name"]]])
-    # sht.update(f'D{next_row}', [[product_data["price"]]])
-    sht.update(f'E{next_row}', [[product_data["description"]]])
-    sht.update(f'F{next_row}', [["published"]])
-    sht.update(f'G{next_row}', [[product_data["image_url"]]])
-    sht.update(f'P{next_row}', [["Latest"]])
-    sht.update(f'Q{next_row}', [["latest"]])
-    sht.update(f'T{next_row}', [["TRUE"]])
-    sht.update(f'V{next_row}', [["Default Shipping Profile"]])
-    sht.update(f'W{next_row}', [["default"]])
-    # variant_id = f"variant_{uuid.uuid4().hex[:24].upper()}"
-    # sht.update(f'X{next_row}', [[variant_id]])
-    sht.update(f'Y{next_row}', [["Medium"]])
-    sht.update(f'AB{next_row}', [["20"]])
-    sht.update(f'AC{next_row}', [["FALSE"]])
-    sht.update(f'AD{next_row}', [["TRUE"]])
-    sht.update(f'AM{next_row}', [[float(product_data["price"]) * 1500]])
-    sht.update(f'AV{next_row}', [["Default Sales Channel"]])
-    sht.update(f'AW{next_row}', [["Default Sales Channel"]])
-    sht.update(f'AX{next_row}', [["Created by Medusa"]])
-    # sht.update(f'AY{next_row}', [["0"]])
-    # sht.update(f'AZ{next_row}', [["0"]])
-    # sht.update(f'BA{next_row}', [["0"]])
-    # sht.update(f'BB{next_row}', [["0"]])
-    # sht.update(f'BC{next_row}', [["0"]])
-    # sht.update(f'BD{next_row}', [["0"]])
+    sht.update(f'B{next_row}', [[product_data["name"]]])
+    sht.update(f'C{next_row}', [[product_data["slug"]]])
+    sht.update(f'D{next_row}', [[product_data["description"]]])
+    sht.update(f'E{next_row}', [[float(product_data["price"]) * 1500]])
+    sht.update(f'F{next_row}', [[0]])
+    sht.update(f'G{next_row}', [[10]])
+    sht.update(f'H{next_row}', [[4.8]])
+    sht.update(f'I{next_row}', [[product_data["image_url"]]])
+    sht.update(f'J{next_row}', [["TRUE"]])
+    sht.update(f'K{next_row}', [["latest"]])
 
 
 def upload_to_firebase(image_name: str, image_url: str):
