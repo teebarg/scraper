@@ -65,8 +65,8 @@ document.getElementById("sendButton").addEventListener("click", () => {
 });
 
 function sendHtmlToBackend() {
-    // const url = "https://scraper-api.niyi.com.ng/api";
-    const url = "http://localhost:3000/api";
+    const url = "https://scraper-api.niyi.com.ng/api";
+    // const url = "http://localhost:3000/api";
     const html = document.documentElement.outerHTML;
 
     return fetch(url, {
