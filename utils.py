@@ -117,13 +117,13 @@ def add_or_update_sheet(product_data: dict) -> None:
     sht.update(f'C{next_row}', [[product_data["slug"]]])
     sht.update(f'D{next_row}', [[product_data["description"]]])
     sht.update(f'E{next_row}', [[float(product_data["price"]) * 1500]])
-    sht.update(f'F{next_row}', [[0]])
+    # sht.update(f'F{next_row}', [[0]])
     sht.update(f'G{next_row}', [[10]])
     sht.update(f'H{next_row}', [[4.8]])
     sht.update(f'I{next_row}', [[product_data["image_url"]]])
     sht.update(f'J{next_row}', [[True]])
-    sht.update(f'K{next_row}', [[""]])
-    sht.update(f'L{next_row}', [[""]])
+    # sht.update(f'K{next_row}', [[""]])
+    # sht.update(f'L{next_row}', [[""]])
     sht.update(f'M{next_row}', [[product_data["images"]]])
 
 
