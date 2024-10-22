@@ -123,7 +123,8 @@ def add_or_update_sheet(product_data: dict) -> None:
     sht.update(f'I{next_row}', [[product_data["image_url"]]])
     sht.update(f'J{next_row}', [[True]])
     sht.update(f'K{next_row}', [[""]])
-    sht.update(f'L{next_row}', [[product_data["images"]]])
+    sht.update(f'L{next_row}', [[""]])
+    sht.update(f'M{next_row}', [[product_data["images"]]])
 
 
 def upload_to_firebase(image_url: str, image_name: str) -> str:
