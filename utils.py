@@ -155,6 +155,7 @@ def add_or_update_sheet(product_data: dict) -> None:
             True,
             "",  # Column K is empty
             "",  # Column L is empty
+            "",  # Column M is empty
             images
         ]
 
