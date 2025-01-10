@@ -11,6 +11,9 @@ import gspread
 import requests
 from bs4 import BeautifulSoup
 from firebase_admin import credentials, storage
+from rembg import remove
+from PIL import Image
+import io
 
 FIREBASE_CRED = {
     "type": os.getenv("FIREBASE_TYPE"),
@@ -178,17 +181,25 @@ def upload_to_firebase(image_url: str, image_name: str) -> str:
 
         # Download the image
         response = requests.get(image_url)
-        response.raise_for_status()  # Ensure image is downloaded successfully
+        response.raise_for_status()
+
+        # Convert to PIL Image and remove background
+        input_image = Image.open(io.BytesIO(response.content))
+        output_image = remove(input_image)
+        
+        # Convert back to bytes
+        img_byte_arr = io.BytesIO()
+        output_image.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
 
         # Upload to Firebase Storage
         bucket = storage.bucket()
         blob = bucket.blob(f"products/{image_name}")
-        blob.upload_from_string(response.content, content_type="image/png")
+        blob.upload_from_string(img_byte_arr, content_type="image/png")
 
         # Make the file publicly accessible
         blob.make_public()
 
-        # Return the public URL of the image
         return blob.public_url
 
     except Exception as e:
