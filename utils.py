@@ -126,7 +126,6 @@ async def scrape_product(html_content) -> dict[str, str]:
 
 
 async def upload_to_firebase(image_url: str, image_name: str) -> str:
-    # STORAGE_BUCKET = os.getenv("STORAGE_BUCKET")
     storage_bucket = STORAGE_BUCKET
 
     try:
@@ -222,7 +221,6 @@ async def parallel_image_upload(image_urls: List[Tuple[str, str]]) -> List[str]:
 async def add_or_update_sheet(product_data: dict) -> None:
     """Async version of sheet updates"""
     try:
-        # SHEET_ID = os.getenv("SHEET_ID")
         sheet_id = SHEET_ID
 
         # Create proper credentials from the dictionary
