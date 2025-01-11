@@ -1,48 +1,26 @@
-import os
 import re
 import unicodedata
 import uuid
 import time
-import concurrent.futures
 from typing import List, Tuple
 import aiohttp
 import asyncio
 from gspread_asyncio import AsyncioGspreadClientManager
 
 import firebase_admin
-import gspread
 import requests
 from bs4 import BeautifulSoup
 from firebase_admin import credentials, storage
-from rembg import remove
-from PIL import Image
-import io
 from starlette.config import Config
-from starlette.datastructures import CommaSeparatedStrings, Secret
+from google.oauth2 import service_account
 
-# FIREBASE_CRED = {
-#     "type": "service_account",
-#     "project_id": os.getenv("FIREBASE_PROJECT_ID"),
-#     "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
-#     "private_key": os.getenv("FIREBASE_PRIVATE_KEY"),
-#     "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
-#     "client_id": os.getenv("FIREBASE_CLIENT_ID"),
-#     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-#     "token_uri": "https://oauth2.googleapis.com/token",
-#     "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-#     "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT_URL"),
-#     "universe_domain": "googleapis.com",
-#     "serviceAccountId": os.getenv("FIREBASE_SERVICE_ACCOUNT_ID"),
-# }
 
 # Config will be read from environment variables and/or ".env" files.
 config = Config(".env")
 
-DEBUG = config('DEBUG', cast=bool, default=False)
-# DATABASE_URL = config('DATABASE_URL')
 FIREBASE_PROJECT_ID = config('FIREBASE_PROJECT_ID')
 FIREBASE_PRIVATE_KEY_ID = config('FIREBASE_PRIVATE_KEY_ID')
-FIREBASE_PRIVATE_KEY = config('FIREBASE_PRIVATE_KEY')
+FIREBASE_PRIVATE_KEY = config('FIREBASE_PRIVATE_KEY').replace('\\n', '\n')  # Fix newlines
 FIREBASE_CLIENT_EMAIL = config('FIREBASE_CLIENT_EMAIL')
 FIREBASE_CLIENT_ID = config('FIREBASE_CLIENT_ID')
 FIREBASE_CLIENT_CERT_URL = config('FIREBASE_CLIENT_CERT_URL')
@@ -50,8 +28,6 @@ FIREBASE_SERVICE_ACCOUNT_ID = config('FIREBASE_SERVICE_ACCOUNT_ID')
 
 STORAGE_BUCKET = config('STORAGE_BUCKET')
 SHEET_ID = config('SHEET_ID')
-# SECRET_KEY = config('SECRET_KEY', cast=Secret)
-# ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=CommaSeparatedStrings)
 
 FIREBASE_CRED = {
     "type": "service_account",
@@ -68,9 +44,6 @@ FIREBASE_CRED = {
     "serviceAccountId": FIREBASE_SERVICE_ACCOUNT_ID,
 }
 
-print(FIREBASE_CRED)
-print(FIREBASE_PROJECT_ID)
-
 def create_slug(text: str) -> str:
     text = text.lower()
     text = re.sub(r"[^\w\s-]", "", text)
@@ -80,7 +53,7 @@ def create_slug(text: str) -> str:
     return text
 
 
-async def scrape_product_async(html_content) -> dict[str, str]:
+async def scrape_product(html_content) -> dict[str, str]:
     soup = BeautifulSoup(html_content, "html.parser")
 
     try:
@@ -129,7 +102,7 @@ async def scrape_product_async(html_content) -> dict[str, str]:
             if img:
                 image_uploads.append((img, f"{slug}-{i}.png"))
 
-        all_uploaded_urls = await parallel_image_upload_async(image_uploads) if image_uploads else []
+        all_uploaded_urls = await parallel_image_upload(image_uploads) if image_uploads else []
         print(f"All image uploads took: {time.time() - upload_start:.2f} seconds")
 
         # First URL is the main image, rest are additional
@@ -152,11 +125,9 @@ async def scrape_product_async(html_content) -> dict[str, str]:
     }
 
 
-async def upload_to_firebase_async(image_url: str, image_name: str) -> str:
+async def upload_to_firebase(image_url: str, image_name: str) -> str:
     # STORAGE_BUCKET = os.getenv("STORAGE_BUCKET")
     storage_bucket = STORAGE_BUCKET
-    print("storage_bucket")
-    print(storage_bucket)
 
     try:
         # Initialize Firebase (remains sync as it's one-time)
@@ -170,18 +141,10 @@ async def upload_to_firebase_async(image_url: str, image_name: str) -> str:
                 response.raise_for_status()
                 image_data = await response.read()
 
-        # Process image (remove background) - remains sync as it's CPU-bound
-        input_image = Image.open(io.BytesIO(image_data))
-        output_image = remove(input_image)
-
-        img_byte_arr = io.BytesIO()
-        output_image.save(img_byte_arr, format='PNG')
-        img_byte_arr = img_byte_arr.getvalue()
-
         # Upload to Firebase (remains sync as Firebase SDK is not async)
         bucket = storage.bucket()
         blob = bucket.blob(f"products/{image_name}")
-        blob.upload_from_string(img_byte_arr, content_type="image/png")
+        blob.upload_from_string(image_data, content_type="image/png")
         blob.make_public()
 
         return blob.public_url
@@ -237,11 +200,11 @@ def batch_update_sheet(sheet, updates: List[Tuple[str, list]]) -> None:
         raise
 
 
-async def parallel_image_upload_async(image_urls: List[Tuple[str, str]]) -> List[str]:
+async def parallel_image_upload(image_urls: List[Tuple[str, str]]) -> List[str]:
     """Upload multiple images in parallel using asyncio"""
     tasks = []
     for idx, (url, name) in enumerate(image_urls):
-        task = asyncio.create_task(upload_to_firebase_async(url, name))
+        task = asyncio.create_task(upload_to_firebase(url, name))
         tasks.append((idx, task))
 
     uploaded_urls = {}
@@ -256,16 +219,24 @@ async def parallel_image_upload_async(image_urls: List[Tuple[str, str]]) -> List
     return [uploaded_urls[i] for i in range(len(image_urls))]
 
 
-async def add_or_update_sheet_async(product_data: dict) -> None:
+async def add_or_update_sheet(product_data: dict) -> None:
     """Async version of sheet updates"""
     try:
         # SHEET_ID = os.getenv("SHEET_ID")
         sheet_id = SHEET_ID
-        print("sheet_id")
-        print(sheet_id)
 
-        # Create async credentials
-        agcm = AsyncioGspreadClientManager(lambda: FIREBASE_CRED)
+        # Create proper credentials from the dictionary
+        scopes = [
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/drive'
+        ]
+        credentials = service_account.Credentials.from_service_account_info(
+            FIREBASE_CRED, 
+            scopes=scopes
+        )
+
+        # Create async credentials manager with the proper credentials
+        agcm = AsyncioGspreadClientManager(lambda: credentials)
         agc = await agcm.authorize()
 
         # Open spreadsheet
@@ -313,7 +284,7 @@ async def add_or_update_sheet_async(product_data: dict) -> None:
         ]
 
         # Update sheet
-        await sheet.update(f'A{next_row}:M{next_row}', [row_data])
+        await sheet.update(f'A{next_row}:N{next_row}', [row_data])
 
     except Exception as e:
         print(f"Error updating sheet: {e}")
