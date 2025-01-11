@@ -1,54 +1,65 @@
-from http.server import BaseHTTPRequestHandler
-import json
+from starlette.applications import Starlette
+from starlette.responses import JSONResponse, PlainTextResponse
+from starlette.routing import Route
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 import time
+import asyncio
 
-from utils import add_or_update_sheet, scrape_product
+from utils import scrape_product_async, add_or_update_sheet_async
 
+async def homepage(request):
+    return PlainTextResponse("Hello, world!")
 
-class handler(BaseHTTPRequestHandler):
+async def process_product(request):
+    print("POST request received")
+    start_time = time.time()
 
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/plain")
-        self.end_headers()
-        self.wfile.write("Hello, world!".encode("utf-8"))
-        return
+    try:
+        # Get request body
+        post_data = await request.body()
+        post_data = post_data.decode("utf-8")
 
-    def do_POST(self):
-        print("POST request received")
-        start_time = time.time()
+        # Process the product asynchronously
+        scrape_start = time.time()
+        product_data = await scrape_product_async(post_data)
+        print(f"Scraping took: {time.time() - scrape_start:.2f} seconds")
 
-        content_length = int(self.headers["Content-Length"])
-        post_data = self.rfile.read(content_length).decode("utf-8")
-
-        try:
-            scrape_start = time.time()
-            product_data = scrape_product(post_data)
-            print(f"Scraping took: {time.time() - scrape_start:.2f} seconds")
-
-            sheet_start = time.time()
-            add_or_update_sheet(product_data)
-            print(f"Sheet update took: {time.time() - sheet_start:.2f} seconds")
-
-            self.send_response(200)
-            self.send_header("Content-type", "application/json")
-            self.end_headers()
-
-            response = json.dumps(
-                {"message": "Processing successful", "data": product_data}
-            )
-            self.wfile.write(response.encode("utf-8"))
-        except Exception as e:
-            print(e, "error.....")
-            self.send_response(400)
-            self.send_header("Content-type", "application/json")
-            self.end_headers()
-            error_message = (
-                '{"error": "Failed to process HTML content", "details": "'
-                + str(e)
-                + '"}'
-            )
-            self.wfile.write(error_message.encode("utf-8"))
+        # Update sheet asynchronously
+        sheet_start = time.time()
+        await add_or_update_sheet_async(product_data)
+        print(f"Sheet update took: {time.time() - sheet_start:.2f} seconds")
 
         print(f"Total request time: {time.time() - start_time:.2f} seconds")
-        return
+        return JSONResponse({
+            "message": "Processing successful",
+            "data": product_data
+        })
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return JSONResponse({
+            "error": "Failed to process HTML content",
+            "details": str(e)
+        }, status_code=400)
+
+# Route configuration
+routes = [
+    Route("/", homepage, methods=["GET"]),
+    Route("/api", process_product, methods=["POST"])
+]
+
+# Middleware configuration
+middleware = [
+    Middleware(CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"])
+]
+
+# Create Starlette application
+app = Starlette(
+    debug=True,
+    routes=routes,
+    middleware=middleware
+)
