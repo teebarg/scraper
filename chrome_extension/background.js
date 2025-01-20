@@ -7,7 +7,3 @@ chrome.tabs.onUpdated.addListener(function () {
         // files: ["content.js"],
     });
 });
-
-function sendHtmlToBackend() {
-    // Implement
-}

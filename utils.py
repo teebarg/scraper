@@ -1,32 +1,48 @@
-import os
 import re
 import unicodedata
 import uuid
 import time
-import concurrent.futures
 from typing import List, Tuple
+import aiohttp
+import asyncio
+from gspread_asyncio import AsyncioGspreadClientManager
 
 import firebase_admin
-import gspread
 import requests
 from bs4 import BeautifulSoup
 from firebase_admin import credentials, storage
+from starlette.config import Config
+from google.oauth2 import service_account
+
+
+# Config will be read from environment variables and/or ".env" files.
+config = Config(".env")
+
+FIREBASE_PROJECT_ID = config('FIREBASE_PROJECT_ID')
+FIREBASE_PRIVATE_KEY_ID = config('FIREBASE_PRIVATE_KEY_ID')
+FIREBASE_PRIVATE_KEY = config('FIREBASE_PRIVATE_KEY').replace('\\n', '\n')  # Fix newlines
+FIREBASE_CLIENT_EMAIL = config('FIREBASE_CLIENT_EMAIL')
+FIREBASE_CLIENT_ID = config('FIREBASE_CLIENT_ID')
+FIREBASE_CLIENT_CERT_URL = config('FIREBASE_CLIENT_CERT_URL')
+FIREBASE_SERVICE_ACCOUNT_ID = config('FIREBASE_SERVICE_ACCOUNT_ID')
+
+STORAGE_BUCKET = config('STORAGE_BUCKET')
+SHEET_ID = config('SHEET_ID')
 
 FIREBASE_CRED = {
-    "type": os.getenv("FIREBASE_TYPE"),
-    "project_id": os.getenv("FIREBASE_PROJECT_ID"),
-    "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
-    "private_key": os.getenv("FIREBASE_PRIVATE_KEY"),
-    "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
-    "client_id": os.getenv("FIREBASE_CLIENT_ID"),
-    "auth_uri": os.getenv("FIREBASE_AUTH_URI"),
-    "token_uri": os.getenv("FIREBASE_TOKEN_URI"),
-    "auth_provider_x509_cert_url": os.getenv("FIREBASE_AUTH_PROVIDER_CERT_URL"),
-    "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT_URL"),
-    "universe_domain": os.getenv("FIREBASE_UNIVERSE_DOMAIN"),
-    "serviceAccountId": os.getenv("FIREBASE_SERVICE_ACCOUNT_ID"),
+    "type": "service_account",
+    "project_id": FIREBASE_PROJECT_ID,
+    "private_key_id": FIREBASE_PRIVATE_KEY_ID,
+    "private_key": FIREBASE_PRIVATE_KEY,
+    "client_email": FIREBASE_CLIENT_EMAIL,
+    "client_id": FIREBASE_CLIENT_ID,
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": FIREBASE_CLIENT_CERT_URL,
+    "universe_domain": "googleapis.com",
+    "serviceAccountId": FIREBASE_SERVICE_ACCOUNT_ID,
 }
-
 
 def create_slug(text: str) -> str:
     text = text.lower()
@@ -37,7 +53,7 @@ def create_slug(text: str) -> str:
     return text
 
 
-def scrape_product(html_content) -> dict[str, str]:
+async def scrape_product(html_content) -> dict[str, str]:
     soup = BeautifulSoup(html_content, "html.parser")
 
     try:
@@ -75,21 +91,18 @@ def scrape_product(html_content) -> dict[str, str]:
         slug = create_slug(product_name)
         image_name = f"{slug}.png"
 
-        # Prepare all image uploads (main + additional)
+        # Convert image uploads to async
         upload_start = time.time()
         image_uploads = []
 
-        # Only add main image if URL exists
         if image_url:
             image_uploads.append((image_url, image_name))
 
-        # Add additional images
-        for i, img in enumerate(image_urls[:5]):  # Limit to 5 additional images
-            if img:  # Only add if URL is not empty
+        for i, img in enumerate(image_urls[:5]):
+            if img:
                 image_uploads.append((img, f"{slug}-{i}.png"))
 
-        # Upload all images in parallel
-        all_uploaded_urls = parallel_image_upload(image_uploads) if image_uploads else []
+        all_uploaded_urls = await parallel_image_upload(image_uploads) if image_uploads else []
         print(f"All image uploads took: {time.time() - upload_start:.2f} seconds")
 
         # First URL is the main image, rest are additional
@@ -98,7 +111,7 @@ def scrape_product(html_content) -> dict[str, str]:
 
     except Exception as e:
         print(f"Error creating product: {e}")
-        raise Exception(f"Failed to scrape product due to: {e}") from e
+        raise
 
     return {
         "id": f"prod_{uuid.uuid4().hex[:24].upper()}",
@@ -112,92 +125,36 @@ def scrape_product(html_content) -> dict[str, str]:
     }
 
 
-def add_or_update_sheet(product_data: dict) -> None:
-    """Update Google Sheet with product data"""
-    try:
-        SHEET_ID = os.getenv("SHEET_ID")
-        gc = gspread.service_account_from_dict(FIREBASE_CRED)
-        sht = gc.open_by_key(SHEET_ID).sheet1
-
-        # Find the next available row
-        all_values = sht.get_all_values()
-        next_row = len(all_values) + 1
-
-        # Search for existing product
-        for i, row in enumerate(all_values):
-            if len(row) > 1 and row[1] == product_data["name"]:
-                next_row = i + 1
-                break
-
-        # Ensure price is a string and convert to float
-        try:
-            price = float(str(product_data["price"]).replace('$', '').strip()) * 1500
-        except (ValueError, TypeError):
-            price = 0.0
-            print(f"Warning: Could not convert price {product_data['price']} to float")
-
-        # Ensure images is a string
-        images = product_data.get("images", "")
-        if isinstance(images, list):
-            images = "|".join(str(img) for img in images)
-
-        # Prepare row data
-        row_data = [
-            "",  # Column A is empty
-            str(product_data.get("name", "")),
-            str(product_data.get("slug", "")),
-            str(product_data.get("description", "")),
-            price,
-            0,  # Column F is empty
-            10,
-            4.8,
-            str(product_data.get("image_url", "")),
-            True,
-            "",  # Column K is empty
-            "",  # Column L is empty
-            "",  # Column M is empty
-            images
-        ]
-
-        # Update the entire row at once
-        sht.update(f'A{next_row}:M{next_row}', [row_data])
-
-    except Exception as e:
-        print(f"Error updating sheet: {e}")
-        raise
-
-
-def upload_to_firebase(image_url: str, image_name: str) -> str:
-    STORAGE_BUCKET = os.getenv("STORAGE_BUCKET")
+async def upload_to_firebase(image_url: str, image_name: str) -> str:
+    storage_bucket = STORAGE_BUCKET
 
     try:
-        # Initialize Firebase if not already initialized
+        # Initialize Firebase (remains sync as it's one-time)
         cred = credentials.Certificate(FIREBASE_CRED)
         if not firebase_admin._apps:
-            firebase_admin.initialize_app(cred, {"storageBucket": STORAGE_BUCKET})
+            firebase_admin.initialize_app(cred, {"storageBucket": storage_bucket})
 
-        # Download the image
-        response = requests.get(image_url)
-        response.raise_for_status()  # Ensure image is downloaded successfully
+        # Download the image asynchronously
+        async with aiohttp.ClientSession() as session:
+            async with session.get(image_url) as response:
+                response.raise_for_status()
+                image_data = await response.read()
 
-        # Upload to Firebase Storage
+        # Upload to Firebase (remains sync as Firebase SDK is not async)
         bucket = storage.bucket()
         blob = bucket.blob(f"products/{image_name}")
-        blob.upload_from_string(response.content, content_type="image/png")
-
-        # Make the file publicly accessible
+        blob.upload_from_string(image_data, content_type="image/png")
         blob.make_public()
 
-        # Return the public URL of the image
         return blob.public_url
 
     except Exception as e:
         print(f"Firebase upload error for {image_name}: {str(e)}")
-        raise Exception(f"Failed to upload {image_name}: {str(e)}") from e
+        raise
 
 
 # Helper to upload image to Firebase
-def upload_image_to_firebase(image_url: str, image_name: str) -> str:
+async def upload_image_to_firebase(image_url: str, image_name: str) -> str:
     try:
         # Download the image
         response = requests.get(image_url)
@@ -242,25 +199,91 @@ def batch_update_sheet(sheet, updates: List[Tuple[str, list]]) -> None:
         raise
 
 
-def parallel_image_upload(image_urls: List[Tuple[str, str]]) -> List[str]:
-    """Upload multiple images in parallel"""
-    uploaded_urls = {}  # Changed to dict to maintain mapping
+async def parallel_image_upload(image_urls: List[Tuple[str, str]]) -> List[str]:
+    """Upload multiple images in parallel using asyncio"""
+    tasks = []
+    for idx, (url, name) in enumerate(image_urls):
+        task = asyncio.create_task(upload_to_firebase(url, name))
+        tasks.append((idx, task))
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        future_to_url = {
-            executor.submit(upload_to_firebase, url, name): (url, name, idx)  # Added index
-            for idx, (url, name) in enumerate(image_urls)
-        }
+    uploaded_urls = {}
+    for idx, task in tasks:
+        try:
+            result = await task
+            uploaded_urls[idx] = result
+        except Exception as e:
+            print(f"Failed to upload image {idx}: {str(e)}")
+            uploaded_urls[idx] = ""
 
-        for future in concurrent.futures.as_completed(future_to_url):
-            url, name, idx = future_to_url[future]
-            try:
-                result = future.result()
-                uploaded_urls[idx] = result  # Store with index as key
-            except Exception as e:
-                print(f"Failed to upload {name}: {str(e)}")
-                uploaded_urls[idx] = ""  # Store empty string for failed uploads
+    return [uploaded_urls[i] for i in range(len(image_urls))]
 
-    # Convert back to ordered list
-    ordered_urls = [uploaded_urls[i] for i in range(len(image_urls))]
-    return ordered_urls
+
+async def add_or_update_sheet(product_data: dict) -> None:
+    """Async version of sheet updates"""
+    try:
+        sheet_id = SHEET_ID
+
+        # Create proper credentials from the dictionary
+        scopes = [
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/drive'
+        ]
+        credentials = service_account.Credentials.from_service_account_info(
+            FIREBASE_CRED, 
+            scopes=scopes
+        )
+
+        # Create async credentials manager with the proper credentials
+        agcm = AsyncioGspreadClientManager(lambda: credentials)
+        agc = await agcm.authorize()
+
+        # Open spreadsheet
+        spreadsheet = await agc.open_by_key(sheet_id)
+        sheet = await spreadsheet.get_worksheet(0)
+
+        # Get all values
+        all_values = await sheet.get_all_values()
+        next_row = len(all_values) + 1
+
+        # Search for existing product
+        for i, row in enumerate(all_values):
+            if len(row) > 1 and row[1] == product_data["name"]:
+                next_row = i + 1
+                break
+
+        # Ensure price is a string and convert to float
+        try:
+            price = float(str(product_data["price"]).replace('$', '').strip()) * 1500
+        except (ValueError, TypeError):
+            price = 0.0
+            print(f"Warning: Could not convert price {product_data['price']} to float")
+
+        # Ensure images is a string
+        images = product_data.get("images", "")
+        if isinstance(images, list):
+            images = "|".join(str(img) for img in images)
+
+        # Prepare row data
+        row_data = [
+            "",  # Column A is empty
+            str(product_data.get("name", "")),
+            str(product_data.get("slug", "")),
+            str(product_data.get("description", "")),
+            price,
+            0,  # Column F is empty
+            10,
+            4.8,
+            str(product_data.get("image_url", "")),
+            True,
+            "",  # Column K is empty
+            "",  # Column L is empty
+            "",  # Column M is empty
+            images
+        ]
+
+        # Update sheet
+        await sheet.update(f'A{next_row}:N{next_row}', [row_data])
+
+    except Exception as e:
+        print(f"Error updating sheet: {e}")
+        raise
