@@ -4,7 +4,6 @@ from starlette.routing import Route
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 import time
-import asyncio
 
 from utils import scrape_product, add_or_update_sheet
 
