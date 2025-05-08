@@ -1,3 +1,5 @@
-beautifulsoup4==4.12.3
-gspread==6.1.4
-firebase_admin==6.6.0
+fastapi==0.111.0
+uvicorn==0.29.0
+beautifulsoup4==4.13.4
+gspread==6.2.0
+supabase==2.15.1

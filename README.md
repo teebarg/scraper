@@ -1,11 +1,11 @@
 # Product Scraper and Processor
 
-This project consists of a Chrome extension and a Python Serverless for scraping product information from web pages and processing it. The scraped data is stored in a Google Sheet and product images are uploaded to Firebase Storage.
+This project consists of a Chrome extension and a Python Serverless for scraping product information from web pages and processing it. The scraped data is stored in a Google Sheet and product images are uploaded to Supabase Storage.
 
 ## Components
 
 1. Chrome Extension: Captures the HTML of the current page and sends it to the backend.
-2. Vercel Python Serverless: Processes the HTML, extracts product information, updates a Google Sheet, and uploads images to Firebase.
+2. Vercel Python Serverless: Processes the HTML, extracts product information, updates a Google Sheet, and uploads images to Supabase.
 
 ## Setup
 
@@ -34,24 +34,17 @@ This project consists of a Chrome extension and a Python Serverless for scraping
 2. Create a `.env` file in the project root with the following contents:
 
    ```
-   GOOGLE_SHEETS_CREDENTIALS_PATH=/app/google_sheets_credentials.json
-   GOOGLE_SHEETS_ID=your_google_sheet_id
-   FIREBASE_CREDENTIALS_PATH=/app/firebase_credentials.json
-   FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
-   ```
+   FIREBASE_PRIVATE_KEY_ID=private_key_id
+   FIREBASE_PRIVATE_KEY=private_key
+   FIREBASE_CLIENT_EMAIL=client_email
+   FIREBASE_CLIENT_ID=client_id
+   FIREBASE_CLIENT_CERT_URL=client_x509_cert_url
+   FIREBASE_SERVICE_ACCOUNT_ID=serviceAccountId
 
-3. Place your Google Sheets and Firebase credential files in the project root directory.
+   SHEET_ID="sheet_id"
 
-4. Install Vercel CLI:
-
-   ```
-   npm i -g vercel
-   ```
-
-5. Deploy to Vercel:
-
-   ```
-   vercel
+   SUPABASE_URL="supabase_url"
+   SUPABASE_KEY="supabase_key"
    ```
 
 ## Usage
@@ -68,20 +61,14 @@ To run the backend locally for development:
 1. Create a virtual environment:
 
    ```
-   python -m venv venv
-   source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+   uv sync
+   source .venv/bin/activate  # On Windows, use `.venv\Scripts\activate`
    ```
 
-2. Install Vercel CLI if you haven't already:
+2. Run the development server:
 
    ```
-   npm i -g vercel
-   ```
-
-3. Run the Vercel development server:
-
-   ```
-   vercel dev
+   uvicorn main:app --reload
    ```
 
 ## Contributing
