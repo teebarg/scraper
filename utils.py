@@ -6,11 +6,15 @@ import time
 import concurrent.futures
 from typing import List, Tuple
 
-import firebase_admin
 import gspread
 import requests
 from bs4 import BeautifulSoup
-from firebase_admin import credentials, storage
+from supabase import create_client, Client
+
+# Initialize Supabase client
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(supabase_url, supabase_key)
 
 FIREBASE_CRED = {
     "type": os.getenv("FIREBASE_TYPE"),
@@ -94,7 +98,7 @@ def scrape_product(html_content) -> dict[str, str]:
 
         # First URL is the main image, rest are additional
         image_url = all_uploaded_urls[0] if all_uploaded_urls else ""
-        product_images = all_uploaded_urls[1:] if len(all_uploaded_urls) > 1 else []
+        product_images = all_uploaded_urls if len(all_uploaded_urls) > 0 else []
 
     except Exception as e:
         print(f"Error creating product: {e}")
@@ -158,65 +162,39 @@ def add_or_update_sheet(product_data: dict) -> None:
             "",  # Column M is empty
             images
         ]
-
         # Update the entire row at once
-        sht.update(f'A{next_row}:M{next_row}', [row_data])
+        sht.update(f'A{next_row}:N{next_row}', [row_data])
 
     except Exception as e:
         print(f"Error updating sheet: {e}")
         raise
 
 
-def upload_to_firebase(image_url: str, image_name: str) -> str:
-    STORAGE_BUCKET = os.getenv("STORAGE_BUCKET")
-
+def upload(image_url: str, name: str) -> str:
     try:
-        # Initialize Firebase if not already initialized
-        cred = credentials.Certificate(FIREBASE_CRED)
-        if not firebase_admin._apps:
-            firebase_admin.initialize_app(cred, {"storageBucket": STORAGE_BUCKET})
+        bucket = "product-images"
+        image_name = f"{uuid.uuid4()}-{name}"
 
         # Download the image
         response = requests.get(image_url)
         response.raise_for_status()  # Ensure image is downloaded successfully
 
-        # Upload to Firebase Storage
-        bucket = storage.bucket()
-        blob = bucket.blob(f"products/{image_name}")
-        blob.upload_from_string(response.content, content_type="image/png")
+        # Upload file to Supabase
+        result = supabase.storage.from_(bucket).upload(
+            image_name,
+            response.content,
+            {"content-type": "image/png"}
+        )
 
-        # Make the file publicly accessible
-        blob.make_public()
+        if not result:
+            raise Exception("Error uploading to supabase")
 
-        # Return the public URL of the image
-        return blob.public_url
-
+        # Get public URL
+        url = supabase.storage.from_(bucket).get_public_url(image_name)
+        return url
     except Exception as e:
-        print(f"Firebase upload error for {image_name}: {str(e)}")
-        raise Exception(f"Failed to upload {image_name}: {str(e)}") from e
-
-
-# Helper to upload image to Firebase
-def upload_image_to_firebase(image_url: str, image_name: str) -> str:
-    try:
-        # Download the image
-        response = requests.get(image_url)
-        response.raise_for_status()  # Ensure image is downloaded successfully
-
-        # Upload the image to Firebase Storage
-        bucket = storage.bucket()
-        blob = bucket.blob(f'product_images/{image_name}')
-
-        # Upload the image content to Firebase
-        blob.upload_from_string(response.content, content_type='image/png')
-
-        # Make the file publicly accessible
-        blob.make_public()
-
-        # Return the public URL of the image
-        return blob.public_url
-    except Exception as e:
-        raise Exception(f"Failed to upload image to Firebase: {e}") from e
+        print(f"Error uploading image: {e}")
+        raise
 
 
 def batch_update_sheet(sheet, updates: List[Tuple[str, list]]) -> None:
@@ -248,7 +226,7 @@ def parallel_image_upload(image_urls: List[Tuple[str, str]]) -> List[str]:
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         future_to_url = {
-            executor.submit(upload_to_firebase, url, name): (url, name, idx)  # Added index
+            executor.submit(upload, url, name): (url, name, idx)  # Added index
             for idx, (url, name) in enumerate(image_urls)
         }
 

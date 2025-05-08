@@ -7,9 +7,6 @@ __pycache__/
 *.pyc
 __pycache__
 
-# Google Sheets and Firebase credentials
-*credentials.json
-
 # Chrome Extension
 chrome_extension/*.pem
 
@@ -27,9 +24,9 @@ Thumbs.db
 # Environments
 venv/
 *.env
-.env 
-.venv 
-env/ 
-ENV/ 
-env.bak/ 
-venv.bak/ 
+.env
+.venv
+env/
+ENV/
+env.bak/
+venv.bak/
